@@ -5,15 +5,13 @@ from settings import *
 class World:
     def __init__(self):
         self.map_image = pygame.image.load(
-            "assets/full_city_map.png"
+            "assets/Track.png"
         ).convert()
 
         self.map_image = pygame.transform.scale(
             self.map_image,
             (MAP_WIDTH, MAP_HEIGHT)
         )
-
-        print("Scanning roads... (one-time process)")
         self.road_nodes = self.generate_road_nodes()
         print("Road nodes:", len(self.road_nodes))
 
@@ -45,6 +43,15 @@ class World:
     # ==============================
     # ROAD CHECK
     # ==============================
+    def is_road_radius(self, x, y, radius=6):
+        for dx, dy in [(0,0), (radius,0), (-radius,0), (0,radius), (0,-radius)]:
+            cx, cy = int(x + dx), int(y + dy)
+            if 0 <= cx < MAP_WIDTH and 0 <= cy < MAP_HEIGHT:
+                r, g, b = self.map_image.get_at((cx, cy))[:3]
+                if (r + g + b) / 3 < 100:
+                    return True
+        return False
+    
     def is_road(self, x, y):
 
         if x < 0 or y < 0 or x >= MAP_WIDTH or y >= MAP_HEIGHT:
@@ -66,4 +73,7 @@ class World:
     # INSTANT ROAD SPAWN
     # ==============================
     def random_road_position(self):
-        return random.choice(self.road_nodes)
+        while True:
+            pos = random.choice(self.road_nodes)
+            if self.is_road_radius(pos[0], pos[1], radius=10):
+                return pos
