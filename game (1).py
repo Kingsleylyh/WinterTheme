@@ -122,7 +122,92 @@ def run_level1(screen, clock):
     base_small_chance = 0.6
     game_over = False
     game_won = False
+    paused = False
+    pause_mode = "MENU"
 
+    pause_title_font = pygame.font.SysFont("arial", 48, bold=True)
+    pause_font = pygame.font.SysFont("arial", 28)
+
+    def pause_ui_layout():
+        panel = pygame.Rect(0, 0, 420, 360)
+        panel.center = (WIDTH // 2, HEIGHT // 2)
+        btn_w, btn_h = 220, 42
+        resume = pygame.Rect(0, 0, btn_w, btn_h)
+        options = pygame.Rect(0, 0, btn_w, btn_h)
+        exit_btn = pygame.Rect(0, 0, btn_w, btn_h)
+        resume.center = (panel.centerx, panel.y + 130)
+        options.center = (panel.centerx, panel.y + 190)
+        exit_btn.center = (panel.centerx, panel.y + 250)
+
+        options_panel = pygame.Rect(0, 0, 380, 220)
+        options_panel.center = (WIDTH // 2, HEIGHT // 2)
+        options_close = pygame.Rect(options_panel.right - 38, options_panel.y + 10, 24, 24)
+
+        music_minus = pygame.Rect(options_panel.x + 40, options_panel.y + 90, 30, 30)
+        music_plus = pygame.Rect(options_panel.right - 70, options_panel.y + 90, 30, 30)
+        sfx_minus = pygame.Rect(options_panel.x + 40, options_panel.y + 140, 30, 30)
+        sfx_plus = pygame.Rect(options_panel.right - 70, options_panel.y + 140, 30, 30)
+
+        return {
+            "panel": panel,
+            "resume": resume,
+            "options": options,
+            "exit": exit_btn,
+            "options_panel": options_panel,
+            "options_close": options_close,
+            "music_minus": music_minus,
+            "music_plus": music_plus,
+            "sfx_minus": sfx_minus,
+            "sfx_plus": sfx_plus,
+        }
+
+    def draw_pause_panel(surface, mode):
+        layout = pause_ui_layout()
+        panel = layout["panel"]
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 120))
+        surface.blit(overlay, (0, 0))
+        pygame.draw.rect(surface, (180, 180, 180), panel, border_radius=12)
+        pygame.draw.rect(surface, (100, 100, 100), panel, 2, border_radius=12)
+        title = pause_title_font.render("PAUSED", True, (30, 30, 30))
+        surface.blit(title, (panel.centerx - title.get_width() // 2, panel.y + 30))
+
+        def draw_button(rect, text):
+            pygame.draw.rect(surface, (230, 230, 230), rect, border_radius=8)
+            pygame.draw.rect(surface, (120, 120, 120), rect, 2, border_radius=8)
+            label = pause_font.render(text, True, (20, 20, 20))
+            surface.blit(label, (rect.centerx - label.get_width() // 2, rect.centery - label.get_height() // 2))
+
+        draw_button(layout["resume"], "RESUME")
+        draw_button(layout["options"], "OPTIONS")
+        draw_button(layout["exit"], "EXIT")
+
+        if mode == "OPTIONS":
+            opt = layout["options_panel"]
+            pygame.draw.rect(surface, (190, 190, 190), opt, border_radius=10)
+            pygame.draw.rect(surface, (100, 100, 100), opt, 2, border_radius=10)
+            close_rect = layout["options_close"]
+            pygame.draw.rect(surface, (230, 230, 230), close_rect, border_radius=6)
+            pygame.draw.rect(surface, (120, 120, 120), close_rect, 2, border_radius=6)
+            x_label = pause_font.render("X", True, (20, 20, 20))
+            surface.blit(x_label, (close_rect.centerx - x_label.get_width() // 2, close_rect.centery - x_label.get_height() // 2))
+
+            music = pause_font.render(f"Music: {int(pygame.mixer.music.get_volume() * 100)}%", True, (30, 30, 30))
+            sfx = pause_font.render(f"SFX: {int(pygame.mixer.music.get_volume() * 100)}%", True, (30, 30, 30))
+            surface.blit(music, (opt.x + 80, opt.y + 90))
+            surface.blit(sfx, (opt.x + 80, opt.y + 140))
+
+            for key in ("music_minus", "music_plus", "sfx_minus", "sfx_plus"):
+                rect = layout[key]
+                pygame.draw.rect(surface, (230, 230, 230), rect, border_radius=6)
+                pygame.draw.rect(surface, (120, 120, 120), rect, 2, border_radius=6)
+            minus = pause_font.render("-", True, (20, 20, 20))
+            plus = pause_font.render("+", True, (20, 20, 20))
+            surface.blit(minus, (layout["music_minus"].centerx - minus.get_width() // 2, layout["music_minus"].centery - minus.get_height() // 2))
+            surface.blit(plus, (layout["music_plus"].centerx - plus.get_width() // 2, layout["music_plus"].centery - plus.get_height() // 2))
+            surface.blit(minus, (layout["sfx_minus"].centerx - minus.get_width() // 2, layout["sfx_minus"].centery - minus.get_height() // 2))
+            surface.blit(plus, (layout["sfx_plus"].centerx - plus.get_width() // 2, layout["sfx_plus"].centery - plus.get_height() // 2))
+        return layout
     # ---------------- SPAWN ----------------
     def spawn_big():
         y = random.randint(40, HEIGHT - 100)
@@ -146,6 +231,24 @@ def run_level1(screen, clock):
         dt = clock.tick(60)
 
         for event in pygame.event.get():
+            if (not game_over) and (not game_won) and event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                paused = not paused
+                pause_mode = "MENU"
+
+            if (not game_over) and (not game_won) and paused and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                layout = pause_ui_layout()
+                if layout["resume"].collidepoint(event.pos):
+                    paused = False
+                elif layout["options"].collidepoint(event.pos):
+                    pause_mode = "OPTIONS" if pause_mode == "MENU" else "MENU"
+                elif layout["exit"].collidepoint(event.pos):
+                    return None
+
+                if pause_mode == "OPTIONS":
+                    if layout["music_minus"].collidepoint(event.pos):
+                        pygame.mixer.music.set_volume(max(0.0, pygame.mixer.music.get_volume() - 0.1))
+                    elif layout["music_plus"].collidepoint(event.pos):
+                        pygame.mixer.music.set_volume(min(1.0, pygame.mixer.music.get_volume() + 0.1))
             if event.type == pygame.QUIT:
                 return None
             if (game_over or game_won) and event.type == pygame.KEYDOWN:
@@ -164,6 +267,10 @@ def run_level1(screen, clock):
                 else:
                     return False
 
+        if (not game_over) and (not game_won) and paused:
+            draw_pause_panel(screen, pause_mode)
+            pygame.display.flip()
+            continue
         if game_over or game_won:
             screen.fill((15, 25, 40))
 
@@ -389,3 +496,8 @@ def run_level1(screen, clock):
         pygame.display.flip()
 
     return game_won
+
+
+
+
+

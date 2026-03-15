@@ -7,11 +7,10 @@ class Bullet(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=pos)
         
         self.pos = pygame.math.Vector2(pos)
-        # Calculate direction: (Target - Start)
         direction = pygame.math.Vector2(target_pos) - self.pos
         
         if direction.length() > 0:
-            self.vel = direction.normalize() * 10 # Speed = 10
+            self.vel = direction.normalize() * 10
         else:
             self.vel = pygame.math.Vector2(0, 0)
             

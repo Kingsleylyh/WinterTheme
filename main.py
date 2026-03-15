@@ -252,6 +252,92 @@ story2_sound = pygame.mixer.Sound(str(story2_sound_path)) if story2_sound_path.e
 story2_channel = None
 story2_sound_started = False
 
+paused = False
+pause_mode = "MENU"
+
+pause_title_font = pygame.font.SysFont("arial", 48, bold=True)
+pause_font = pygame.font.SysFont("arial", 28)
+
+def pause_ui_layout():
+    panel = pygame.Rect(0, 0, 420, 360)
+    panel.center = (WIDTH // 2, HEIGHT // 2)
+    btn_w, btn_h = 220, 42
+    resume = pygame.Rect(0, 0, btn_w, btn_h)
+    options = pygame.Rect(0, 0, btn_w, btn_h)
+    exit_btn = pygame.Rect(0, 0, btn_w, btn_h)
+    resume.center = (panel.centerx, panel.y + 130)
+    options.center = (panel.centerx, panel.y + 190)
+    exit_btn.center = (panel.centerx, panel.y + 250)
+
+    options_panel = pygame.Rect(0, 0, 380, 220)
+    options_panel.center = (WIDTH // 2, HEIGHT // 2)
+    options_close = pygame.Rect(options_panel.right - 38, options_panel.y + 10, 24, 24)
+
+    music_minus = pygame.Rect(options_panel.x + 40, options_panel.y + 90, 30, 30)
+    music_plus = pygame.Rect(options_panel.right - 70, options_panel.y + 90, 30, 30)
+    sfx_minus = pygame.Rect(options_panel.x + 40, options_panel.y + 140, 30, 30)
+    sfx_plus = pygame.Rect(options_panel.right - 70, options_panel.y + 140, 30, 30)
+
+    return {
+        "panel": panel,
+        "resume": resume,
+        "options": options,
+        "exit": exit_btn,
+        "options_panel": options_panel,
+        "options_close": options_close,
+        "music_minus": music_minus,
+        "music_plus": music_plus,
+        "sfx_minus": sfx_minus,
+        "sfx_plus": sfx_plus,
+    }
+
+def draw_pause_panel(surface, mode):
+    layout = pause_ui_layout()
+    panel = layout["panel"]
+    overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 120))
+    surface.blit(overlay, (0, 0))
+    pygame.draw.rect(surface, (180, 180, 180), panel, border_radius=12)
+    pygame.draw.rect(surface, (100, 100, 100), panel, 2, border_radius=12)
+    title = pause_title_font.render("PAUSED", True, (30, 30, 30))
+    surface.blit(title, (panel.centerx - title.get_width() // 2, panel.y + 30))
+
+    def draw_button(rect, text):
+        pygame.draw.rect(surface, (230, 230, 230), rect, border_radius=8)
+        pygame.draw.rect(surface, (120, 120, 120), rect, 2, border_radius=8)
+        label = pause_font.render(text, True, (20, 20, 20))
+        surface.blit(label, (rect.centerx - label.get_width() // 2, rect.centery - label.get_height() // 2))
+
+    draw_button(layout["resume"], "RESUME")
+    draw_button(layout["options"], "OPTIONS")
+    draw_button(layout["exit"], "EXIT")
+
+    if mode == "OPTIONS":
+        opt = layout["options_panel"]
+        pygame.draw.rect(surface, (190, 190, 190), opt, border_radius=10)
+        pygame.draw.rect(surface, (100, 100, 100), opt, 2, border_radius=10)
+        close_rect = layout["options_close"]
+        pygame.draw.rect(surface, (230, 230, 230), close_rect, border_radius=6)
+        pygame.draw.rect(surface, (120, 120, 120), close_rect, 2, border_radius=6)
+        x_label = pause_font.render("X", True, (20, 20, 20))
+        surface.blit(x_label, (close_rect.centerx - x_label.get_width() // 2, close_rect.centery - x_label.get_height() // 2))
+
+        music = pause_font.render(f"Music: {int(sounds.music_volume * 100)}%", True, (30, 30, 30))
+        sfx = pause_font.render(f"SFX: {int(sounds.sfx_volume * 100)}%", True, (30, 30, 30))
+        surface.blit(music, (opt.x + 80, opt.y + 90))
+        surface.blit(sfx, (opt.x + 80, opt.y + 140))
+
+        for key in ("music_minus", "music_plus", "sfx_minus", "sfx_plus"):
+            rect = layout[key]
+            pygame.draw.rect(surface, (230, 230, 230), rect, border_radius=6)
+            pygame.draw.rect(surface, (120, 120, 120), rect, 2, border_radius=6)
+        minus = pause_font.render("-", True, (20, 20, 20))
+        plus = pause_font.render("+", True, (20, 20, 20))
+        surface.blit(minus, (layout["music_minus"].centerx - minus.get_width() // 2, layout["music_minus"].centery - minus.get_height() // 2))
+        surface.blit(plus, (layout["music_plus"].centerx - plus.get_width() // 2, layout["music_plus"].centery - plus.get_height() // 2))
+        surface.blit(minus, (layout["sfx_minus"].centerx - minus.get_width() // 2, layout["sfx_minus"].centery - minus.get_height() // 2))
+        surface.blit(plus, (layout["sfx_plus"].centerx - plus.get_width() // 2, layout["sfx_plus"].centery - plus.get_height() // 2))
+    return layout
 # --- MAIN LOOP ---
 while True:
     dt = clock.tick(FPS) / 1000
@@ -264,11 +350,37 @@ while True:
             sys.exit()
         
         # UNIVERSAL SPAWN LOGIC (Checks every 5s regardless of state, but we only add if playing)
-        if event.type == BUFF_SPAWN_EVENT and GAME_STATE == "PLAYING":
+        if event.type == BUFF_SPAWN_EVENT and GAME_STATE == "PLAYING" and not paused:
             if len(buffs) < 10:
                 spawn_pos = world.random_road_position()
                 b_type = random.choice(["NITRO", "REPAIR", "SHIELD"])
                 buffs.add(Buff(spawn_pos, b_type))
+
+        if GAME_STATE == "PLAYING" and event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            paused = not paused
+            pause_mode = "MENU"
+
+        if GAME_STATE == "PLAYING" and paused and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            layout = pause_ui_layout()
+            if layout["resume"].collidepoint(event.pos):
+                paused = False
+            elif layout["options"].collidepoint(event.pos):
+                pause_mode = "OPTIONS" if pause_mode == "MENU" else "MENU"
+            elif layout["exit"].collidepoint(event.pos):
+                pygame.quit()
+                sys.exit()
+
+            if pause_mode == "OPTIONS":
+                if layout["options_close"].collidepoint(event.pos):
+                    pause_mode = "MENU"
+                elif layout["music_minus"].collidepoint(event.pos):
+                    sounds.set_music_volume(max(0.0, sounds.music_volume - 0.1))
+                elif layout["music_plus"].collidepoint(event.pos):
+                    sounds.set_music_volume(min(1.0, sounds.music_volume + 0.1))
+                elif layout["sfx_minus"].collidepoint(event.pos):
+                    sounds.set_sfx_volume(max(0.0, sounds.sfx_volume - 0.1))
+                elif layout["sfx_plus"].collidepoint(event.pos):
+                    sounds.set_sfx_volume(min(1.0, sounds.sfx_volume + 0.1))
 
         if GAME_STATE == "STORY":
             if event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_ESCAPE, pygame.K_RETURN):
@@ -399,54 +511,55 @@ while True:
 
     # ---------------- STATE: PLAYING ----------------
     elif GAME_STATE == "PLAYING":
-        # --- LOGIC ---
-        path_update_counter += 1
-        speed_ratio = min(car.vel.length() / 10, 1.0)
-        sounds.play_engine(speed_ratio)
-        
-        car.update(world, particle_manager)
-        camera.update(car, world)
-        particle_manager.update()
-        combat_system.update(enemies) 
-
-        # Buff Collisions
-        hit_buffs = pygame.sprite.spritecollide(car, buffs, True)
-        for buff in hit_buffs:
-            buff.apply(car)
-            sounds.play_sfx("pickup") 
-        buffs.update()
-
-        # Screech Logic
-        is_on_road = world.is_road(car.pos.x, car.pos.y)
-        if keys[pygame.K_SPACE] and car.vel.length() > 2.5 and is_on_road:
-            vol = min((car.vel.length() - 2.5) / 5, 0.6)
-            sounds.play_screech(vol)
-        else:
-            sounds.stop_screech()
-
-        # Enemy Logic
-        for enemy in enemies:
-            enemy.update(car.pos)
-            dist_vec = enemy.pos - car.pos
-            if not enemy.is_dead and dist_vec.length() < 60:
-                if enemy.state == "attack":
-                    car.health -= 10 * dt
-                    if car.health <= 0: GAME_STATE = "GAMEOVER"
-                
-                # Physical Push
-                if dist_vec.length() < 35:
-                    enemy.pos += dist_vec.normalize() * (35 - dist_vec.length())
-
-        # Mission Logic
-        if path_update_counter >= 30:
-            mission.generate_path(car.pos)
-            path_update_counter = 0
-        if mission.check(car):
-            score += 1
-            mission.generate_path(car.pos)
-        
-        snow.update()
-
+        if not paused:
+            # --- LOGIC ---
+            path_update_counter += 1
+            speed_ratio = min(car.vel.length() / 10, 1.0)
+            sounds.play_engine(speed_ratio)
+            
+            car.update(world, particle_manager)
+            camera.update(car, world)
+            particle_manager.update()
+            combat_system.update(enemies) 
+    
+            # Buff Collisions
+            hit_buffs = pygame.sprite.spritecollide(car, buffs, True)
+            for buff in hit_buffs:
+                buff.apply(car)
+                sounds.play_sfx("pickup") 
+            buffs.update()
+    
+            # Screech Logic
+            is_on_road = world.is_road(car.pos.x, car.pos.y)
+            if keys[pygame.K_SPACE] and car.vel.length() > 2.5 and is_on_road:
+                vol = min((car.vel.length() - 2.5) / 5, 0.6)
+                sounds.play_screech(vol)
+            else:
+                sounds.stop_screech()
+    
+            # Enemy Logic
+            for enemy in enemies:
+                enemy.update(car.pos)
+                dist_vec = enemy.pos - car.pos
+                if not enemy.is_dead and dist_vec.length() < 60:
+                    if enemy.state == "attack":
+                        car.health -= 10 * dt
+                        if car.health <= 0: GAME_STATE = "GAMEOVER"
+                    
+                    # Physical Push
+                    if dist_vec.length() < 35:
+                        enemy.pos += dist_vec.normalize() * (35 - dist_vec.length())
+    
+            # Mission Logic
+            if path_update_counter >= 30:
+                mission.generate_path(car.pos)
+                path_update_counter = 0
+            if mission.check(car):
+                score += 1
+                mission.generate_path(car.pos)
+            
+            snow.update()
+    
         # --- DRAWING ---
         world.draw(screen, camera)
         mission.draw(screen, camera)
@@ -472,9 +585,15 @@ while True:
         snow.draw(screen)
         minimap.draw(screen, car, mission)
 
+        if paused:
+            draw_pause_panel(screen, pause_mode)
+
     # ---------------- STATE: GAMEOVER ----------------
     elif GAME_STATE == "GAMEOVER":
         world.draw(screen, camera)
         ui.draw_game_over(screen, score)
 
     pygame.display.update()
+
+
+
