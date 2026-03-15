@@ -11,7 +11,7 @@ class EnemyCar(pygame.sprite.Sprite):
         self.vel = pygame.math.Vector2(0, 0)
         self.forward = pygame.math.Vector2(0, -1)
         self.angle = 0
-        self.engine_power = 0.40
+        self.engine_power = 0.30
         self.friction = 0.05
         self.max_speed = 1.7
         self.rot_speed = 2.2
