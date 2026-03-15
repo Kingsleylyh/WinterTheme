@@ -235,6 +235,10 @@ def run_level1(screen, clock):
                 paused = not paused
                 pause_mode = "MENU"
 
+            if (not game_over) and (not game_won) and (not paused) and event.type == pygame.KEYDOWN and event.key == pygame.K_F9:
+                # DEV SKIP: Jump to level 2
+                return True
+
             if (not game_over) and (not game_won) and paused and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 layout = pause_ui_layout()
                 if layout["resume"].collidepoint(event.pos):
@@ -283,7 +287,7 @@ def run_level1(screen, clock):
                     flake[1] = 0
 
             if game_won:
-                title = big_font.render("YOU SAVED CHRISTMAS!", True, (0, 255, 0))
+                title = big_font.render("YOU SAVED SANTA!", True, (0, 255, 0))
                 screen.blit(title, (WIDTH // 2 - 260, 80))
 
                 santa_timer += dt
@@ -496,6 +500,7 @@ def run_level1(screen, clock):
         pygame.display.flip()
 
     return game_won
+
 
 
 

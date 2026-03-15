@@ -34,7 +34,7 @@ class MiniMap:
                             mini_tile_w + 1, mini_tile_h + 1)
                     pygame.draw.rect(self.base_map, (100, 100, 100), rect)
 
-    def draw(self, screen, car, mission):
+    def draw(self, screen, car, mission, enemies):
         # 1. Draw Border
         pygame.draw.rect(screen, (255, 255, 255), 
                          (self.offset_x - 2, self.offset_y - 2, MINIMAP_SIZE + 4, MINIMAP_SIZE + 4), 2)
@@ -52,3 +52,11 @@ class MiniMap:
         mx = int((mission.target[0] / self.full_world_width) * MINIMAP_SIZE)
         my = int((mission.target[1] / self.full_world_height) * MINIMAP_SIZE)
         pygame.draw.circle(screen, (255, 0, 0), (self.offset_x + mx, self.offset_y + my), 4)
+
+        # 5. Enemies
+        for enemy in enemies:
+            if getattr(enemy, "is_dead", False):
+                continue
+            ex = int((enemy.pos.x / self.full_world_width) * MINIMAP_SIZE)
+            ey = int((enemy.pos.y / self.full_world_height) * MINIMAP_SIZE)
+            pygame.draw.circle(screen, (0, 255, 0), (self.offset_x + ex, self.offset_y + ey), 3)

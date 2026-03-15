@@ -31,9 +31,7 @@ class UI:
         # 4. White Border (Makes it look cleaner)
         pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 1)
 
-        # 5. Health Label (Centered under the bar)
-        health_label = self.font.render("Car Integrity", True, (255, 255, 255))
-        screen.blit(health_label, (bar_x, bar_y + bar_height + 5))
+        # 5. (Removed label)
 
     def draw_menu(self, screen, draw_bg=True):
         """Draws the Main Menu screen."""
@@ -50,24 +48,35 @@ class UI:
         title = self.title_font.render("HOW TO PLAY", True, (255, 255, 255))
         screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 140))
 
-        lines = [
+        left_lines = [
             "W - Up",
             "S - Down",
             "A - Left",
             "D - Right",
+        ]
+        right_lines = [
             "LEFT SHIFT - Boost",
-            "Collect gifts and avoid bombs",
+            "Collect gifts",
+            "Avoid bombs",
         ]
 
+        left_x = WIDTH // 2 - 260
+        right_x = WIDTH // 2 + 40
         y = 260
-        for line in lines:
+        for line in left_lines:
             txt = self.font.render(line, True, (200, 200, 200))
-            screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, y))
+            screen.blit(txt, (left_x, y))
+            y += 40
+
+        y = 260
+        for line in right_lines:
+            txt = self.font.render(line, True, (200, 200, 200))
+            screen.blit(txt, (right_x, y))
             y += 40
 
         if pygame.time.get_ticks() % 1000 < 500:
             cont = self.font.render("Press any key to continue", True, (0, 255, 100))
-            screen.blit(cont, (WIDTH // 2 - cont.get_width() // 2, 520))
+            screen.blit(cont, (WIDTH // 2 - cont.get_width() // 2, 560))
 
     def draw_howto_level2(self, screen):
         """Draws the How To Play screen for Level 2."""
@@ -75,24 +84,37 @@ class UI:
         title = self.title_font.render("HOW TO PLAY", True, (255, 255, 255))
         screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 140))
 
-        lines = [
+        left_lines = [
             "W - Accelerate",
             "S - Brake / Reverse",
             "A / D - Steer",
             "SPACE - Drift",
             "LEFT SHIFT + W - Nitro Boost",
-            "Avoid enemies and obstacles",
+        ]
+        right_lines = [
+            "Y - Shoot (auto-target)",
+            "Blue buffs refuel nitro boost",
+            "Green buffs restore health",
+            "Eliminate enemies or reach 10 presents",
         ]
 
+        left_x = WIDTH // 2 - 320
+        right_x = WIDTH // 2 + 40
         y = 260
-        for line in lines:
+        for line in left_lines:
             txt = self.font.render(line, True, (200, 200, 200))
-            screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, y))
+            screen.blit(txt, (left_x, y))
+            y += 40
+
+        y = 260
+        for line in right_lines:
+            txt = self.font.render(line, True, (200, 200, 200))
+            screen.blit(txt, (right_x, y))
             y += 40
 
         if pygame.time.get_ticks() % 1000 < 500:
             cont = self.font.render("Press any key to continue", True, (0, 255, 100))
-            screen.blit(cont, (WIDTH // 2 - cont.get_width() // 2, 520))
+            screen.blit(cont, (WIDTH // 2 - cont.get_width() // 2, 560))
 
     def draw_game_over(self, screen, score):
         """Draws the Game Over overlay."""

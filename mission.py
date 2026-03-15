@@ -7,6 +7,8 @@ class Mission:
         self.world = world
         self.target = pygame.math.Vector2(0, 0)
         self.path = []
+        self.target_image = pygame.image.load("assets/small_target.png").convert_alpha()
+        self.target_image = pygame.transform.smoothscale(self.target_image, (32, 32))
         self.new_mission()
 
     def new_mission(self):
@@ -30,13 +32,9 @@ class Mission:
         self.path = astar(start, goal, self.world)
 
     def draw(self, screen, camera):
-        # 1. Draw Destination (Red Gift Icon)
-        # Using a larger rect since tiles are 256px
-        target_rect = pygame.Rect(0, 0, 40, 40)
-        target_rect.center = self.target
-        screen_rect = camera.apply(target_rect)
-        pygame.draw.rect(screen, (255, 0, 0), screen_rect)
-        pygame.draw.rect(screen, (255, 255, 255), screen_rect, 2) # Border
+        # 1. Draw Destination (Small Target Icon)
+        target_rect = self.target_image.get_rect(center=self.target)
+        screen.blit(self.target_image, camera.apply(target_rect))
 
         # 2. Draw GPS Line (Breadcrumbs)
         if self.path:

@@ -13,8 +13,9 @@ from camera import Camera
 from minimap import MiniMap
 from mission import Mission
 from particles import *
-from Enemy import Enemy
+# # from Enemy import Enemy
 from CombatSystem import CombatSystem
+from Enemy import EnemyCar
 from SoundManager import SoundManager
 from ui import *
 from Buff import *
@@ -32,7 +33,7 @@ except Exception:
 
 # --- INITIALIZATION ---
 pygame.init()
-pygame.display.set_caption("Santa's Winter Journey - AI Defense")
+pygame.display.set_caption("Santa's Winter Journey")
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
@@ -54,6 +55,18 @@ mission = Mission(world)
 minimap = MiniMap(world)
 particle_manager = ParticleManager()
 snow = Snow()
+
+# Font for "Press SPACE to skip" overlay
+skip_font = pygame.font.SysFont("arial", 24)
+
+def draw_skip_hint(surface):
+    """Draw 'Press SPACE to skip' text at the bottom center of the screen."""
+    text = skip_font.render("Press SPACE to skip", True, (220, 220, 220))
+    shadow = skip_font.render("Press SPACE to skip", True, (0, 0, 0))
+    x = surface.get_width() // 2 - text.get_width() // 2
+    y = surface.get_height() - 50
+    surface.blit(shadow, (x + 1, y + 1))
+    surface.blit(text, (x, y))
 
 # --- STORY VIDEO SETUP ---
 class StoryVideo:
@@ -208,6 +221,14 @@ class LoopVideo:
             y = (sh - fh) // 2
             surface.blit(self.last_surface, (x, y))
 
+    def reset(self):
+        if self.cap is None:
+            return
+        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        self.last_surface = None
+        self.last_tick = 0
+        self.done = False
+
 _title_path = "assets/title_video.mp4"
 if not Path(_title_path).exists():
     _title_path = "assets/title video.mp4"
@@ -229,18 +250,31 @@ def run_level1():
 
     return module.run_level1(screen, clock)
 
-# 3. AI Enemies
+# 3. AI Enemies (Level 2: car chasers at map corners)
+enemy_image = pygame.image.load("assets/enemy/enemy.png").convert_alpha()
+enemy_image = pygame.transform.smoothscale(enemy_image, (64, 64))
+bomb_explode_image = pygame.image.load("assets/bomb_frame2.png").convert_alpha()
+bomb_explode_image = pygame.transform.smoothscale(bomb_explode_image, (96, 96))
+
 enemies = pygame.sprite.Group()
 def spawn_enemies():
     enemies.empty()
-    for i in range(5):
-        spawn_point = world.random_road_position()
-        enemies.add(Enemy(spawn_point))
+    map_w = world.tile_size * 30
+    map_h = world.tile_size * 30
+    offset = world.tile_size // 2
+    corners = [
+        (offset, offset),
+        (map_w - offset, offset),
+        (offset, map_h - offset),
+    ]
+    for pos in corners:
+        enemies.add(EnemyCar(pos, enemy_image, bomb_explode_image))
 
 spawn_enemies()
 
 # States
 font = pygame.font.SysFont("arial", 32)
+win_big_font = pygame.font.SysFont(None, 64)
 GAME_STATE = "STORY" if not story_video.done else "MENU"
 score = 0
 path_update_counter = 0
@@ -257,6 +291,21 @@ pause_mode = "MENU"
 
 pause_title_font = pygame.font.SysFont("arial", 48, bold=True)
 pause_font = pygame.font.SysFont("arial", 28)
+gameover_wipe_progress = 0.0
+gameover_fade_alpha = 0
+retry_white_alpha = 0
+LEVEL2_TIME_LIMIT = 300
+level2_start_ticks = None
+level2_time_left = LEVEL2_TIME_LIMIT
+win_snowflakes = [[random.randint(0, WIDTH), random.randint(0, HEIGHT), random.randint(2, 5)] for _ in range(120)]
+win_santa_frames = [
+    pygame.transform.scale(pygame.image.load("assets/santaend_frame1.png").convert_alpha(), (250, 250)),
+    pygame.transform.scale(pygame.image.load("assets/santaend_frame2.png").convert_alpha(), (250, 250)),
+    pygame.transform.scale(pygame.image.load("assets/santaend_frame3.png").convert_alpha(), (250, 250)),
+    pygame.transform.scale(pygame.image.load("assets/santaend_frame4.png").convert_alpha(), (250, 250)),
+]
+win_santa_frame = 0
+win_santa_timer = 0
 
 def pause_ui_layout():
     panel = pygame.Rect(0, 0, 420, 360)
@@ -338,6 +387,92 @@ def draw_pause_panel(surface, mode):
         surface.blit(minus, (layout["sfx_minus"].centerx - minus.get_width() // 2, layout["sfx_minus"].centery - minus.get_height() // 2))
         surface.blit(plus, (layout["sfx_plus"].centerx - plus.get_width() // 2, layout["sfx_plus"].centery - plus.get_height() // 2))
     return layout
+
+def reset_game_state():
+    global score, path_update_counter, paused, pause_mode, level2_start_ticks, level2_time_left
+
+    score = 0
+    path_update_counter = 0
+    paused = False
+    pause_mode = "MENU"
+    level2_start_ticks = None
+    level2_time_left = LEVEL2_TIME_LIMIT
+
+    # Reset car state
+    car.health = car.max_health
+    car.nitro_charge = car.max_nitro
+    car.pos = pygame.math.Vector2(world.random_road_position())
+    car.vel = pygame.math.Vector2(0, 0)
+    car.accel = pygame.math.Vector2(0, 0)
+    car.forward = pygame.math.Vector2(0, -1)
+    car.angle = 0
+    car.smooth_speed = 0.0
+    car.is_boosting = False
+    car.image = car.original
+    car.rect = car.image.get_rect(center=car.pos)
+
+    # Reset systems
+    buffs.empty()
+    enemies.empty()
+    spawn_enemies()
+    combat_system.bullets.empty()
+    particle_manager.clear()
+    snow.clear()
+    mission.new_mission()
+    mission.generate_path(car.pos)
+    camera.update(car, world)
+    sounds.stop_screech()
+
+def draw_playing_scene(surface):
+    world.draw(surface, camera)
+    mission.draw(surface, camera)
+    particle_manager.draw(surface, camera)
+    combat_system.draw(surface, camera)
+
+    for buff in buffs:
+        surface.blit(buff.image, camera.apply(buff.rect))
+
+    for enemy in enemies:
+        surface.blit(enemy.image, camera.apply(enemy.rect))
+        enemy.draw_health(surface, camera)
+
+    surface.blit(car.image, camera.apply(car.rect))
+
+    ui.draw_hud(surface, car, score)
+    ui.draw_nitro_bar(surface, car)
+    draw_gauge(surface, car.smooth_speed, font)
+    snow.draw(surface)
+    minimap.draw(surface, car, mission, enemies)
+
+def draw_level2_timer(surface):
+    minutes = level2_time_left // 60
+    seconds = level2_time_left % 60
+    time_text = font.render(f"Time: {minutes:02d}:{seconds:02d}", True, (255, 255, 255))
+    surface.blit(time_text, (WIDTH - time_text.get_width() - 20, 20))
+
+def draw_win_screen(surface):
+    global win_santa_frame, win_santa_timer
+    surface.fill((15, 25, 40))
+    for flake in win_snowflakes:
+        pygame.draw.circle(surface, (255, 255, 255), (flake[0], flake[1]), flake[2])
+        flake[1] += flake[2] * 0.5
+        if flake[1] > HEIGHT:
+            flake[0] = random.randint(0, WIDTH)
+            flake[1] = 0
+
+    title = win_big_font.render("YOU SAVED CHRISTMAS!", True, (0, 255, 0))
+    surface.blit(title, (WIDTH // 2 - 260, 80))
+
+    win_santa_timer += 1
+    if win_santa_timer > 10:
+        win_santa_frame = (win_santa_frame + 1) % len(win_santa_frames)
+        win_santa_timer = 0
+
+    surface.blit(win_santa_frames[win_santa_frame], (WIDTH // 2 - 125, 150))
+    score_text = font.render(f"Score: {score}", True, (255, 255, 255))
+    surface.blit(score_text, (WIDTH // 2 - score_text.get_width() // 2, HEIGHT - 110))
+    exit_text = font.render("Press X to Exit Game", True, (255, 255, 255))
+    surface.blit(exit_text, (WIDTH // 2 - exit_text.get_width() // 2, HEIGHT - 70))
 # --- MAIN LOOP ---
 while True:
     dt = clock.tick(FPS) / 1000
@@ -353,7 +488,7 @@ while True:
         if event.type == BUFF_SPAWN_EVENT and GAME_STATE == "PLAYING" and not paused:
             if len(buffs) < 10:
                 spawn_pos = world.random_road_position()
-                b_type = random.choice(["NITRO", "REPAIR", "SHIELD"])
+                b_type = random.choice(["NITRO", "REPAIR"])
                 buffs.add(Buff(spawn_pos, b_type))
 
         if GAME_STATE == "PLAYING" and event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -389,6 +524,16 @@ while True:
                     sounds.play_music("assets/sounds/bgm.mp3")
                     music_started = True
 
+        elif GAME_STATE == "STORY2":
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                # Skip story2 video
+                story2_video.stop_audio()
+                if story2_channel is not None:
+                    story2_channel.stop()
+                    story2_channel = None
+                sounds.play_music("assets/sounds/bgm.mp3")
+                GAME_STATE = "HOWTO_L2"
+
         elif GAME_STATE == "MENU":
             if event.type == pygame.KEYDOWN:
                 GAME_STATE = "FADE_TO_HOWTO_L1"
@@ -405,15 +550,12 @@ while True:
 
         elif GAME_STATE == "GAMEOVER":
             if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
-                # Reset Logic
-                car.health = 100
-                car.nitro_charge = 100
-                score = 0
-                car.pos = pygame.math.Vector2(world.random_road_position())
-                car.vel = pygame.math.Vector2(0,0)
-                buffs.empty()
-                spawn_enemies()
-                GAME_STATE = "PLAYING"
+                retry_white_alpha = 0
+                GAME_STATE = "RETRY_FLASH_OUT"
+        elif GAME_STATE == "WIN":
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_x:
+                pygame.quit()
+                sys.exit()
 
     # --- 2. DRAWING PREP ---
     screen.fill((0, 0, 0)) 
@@ -422,6 +564,7 @@ while True:
     if GAME_STATE == "STORY":
         screen.fill((0, 0, 0))
         finished = story_video.update(screen)
+        draw_skip_hint(screen)
         if finished:
             GAME_STATE = "MENU"
             if not music_started:
@@ -485,6 +628,7 @@ while True:
             story2_sound_started = True
         story2_video.start_audio()
         finished = story2_video.update(screen)
+        draw_skip_hint(screen)
         if finished:
             story2_video.stop_audio()
             if story2_channel is not None:
@@ -508,11 +652,22 @@ while True:
         if fade_alpha >= 255:
             GAME_STATE = "PLAYING"
             mission.generate_path(car.pos)
+            level2_start_ticks = pygame.time.get_ticks()
+            level2_time_left = LEVEL2_TIME_LIMIT
 
     # ---------------- STATE: PLAYING ----------------
     elif GAME_STATE == "PLAYING":
         if not paused:
             # --- LOGIC ---
+            if level2_start_ticks is None:
+                level2_start_ticks = pygame.time.get_ticks()
+            elapsed = (pygame.time.get_ticks() - level2_start_ticks) / 1000
+            level2_time_left = max(0, int(LEVEL2_TIME_LIMIT - elapsed))
+            if level2_time_left <= 0:
+                gameover_wipe_progress = 0.0
+                gameover_fade_alpha = 0
+                GAME_STATE = "GAMEOVER_WIPE"
+
             path_update_counter += 1
             speed_ratio = min(car.vel.length() / 10, 1.0)
             sounds.play_engine(speed_ratio)
@@ -535,21 +690,26 @@ while True:
                 vol = min((car.vel.length() - 2.5) / 5, 0.6)
                 sounds.play_screech(vol)
             else:
-                sounds.stop_screech()
-    
-            # Enemy Logic
+                sounds.stop_screech()            # Enemy Logic
+            enemies.update(car.pos, world, enemies)
             for enemy in enemies:
-                enemy.update(car.pos)
-                dist_vec = enemy.pos - car.pos
-                if not enemy.is_dead and dist_vec.length() < 60:
-                    if enemy.state == "attack":
-                        car.health -= 10 * dt
-                        if car.health <= 0: GAME_STATE = "GAMEOVER"
-                    
-                    # Physical Push
-                    if dist_vec.length() < 35:
-                        enemy.pos += dist_vec.normalize() * (35 - dist_vec.length())
-    
+                if enemy.rect.colliderect(car.rect):
+                    gameover_wipe_progress = 0.0
+                    gameover_fade_alpha = 0
+                    GAME_STATE = "GAMEOVER_WIPE"
+
+            # Manual Shoot (Y)
+            if keys[pygame.K_y]:
+                combat_system.try_shoot(enemies)
+
+            if len(enemies) == 0 or score >= 10:
+                GAME_STATE = "WIN"
+
+            if car.health <= 0:
+                gameover_wipe_progress = 0.0
+                gameover_fade_alpha = 0
+                GAME_STATE = "GAMEOVER_WIPE"
+
             # Mission Logic
             if path_update_counter >= 30:
                 mission.generate_path(car.pos)
@@ -561,39 +721,71 @@ while True:
             snow.update()
     
         # --- DRAWING ---
-        world.draw(screen, camera)
-        mission.draw(screen, camera)
-        particle_manager.draw(screen, camera)
-        combat_system.draw(screen, camera)
-        
-        # Draw Buffs
-        for buff in buffs:
-            screen.blit(buff.image, camera.apply(buff.rect))
-            
-        # Draw Enemies
-        for enemy in enemies:
-            screen.blit(enemy.image, camera.apply(enemy.rect))
-            enemy.draw_health(screen, camera)
-
-        # Draw Player
-        screen.blit(car.image, camera.apply(car.rect))
-        
-        # UI Overlay
-        ui.draw_hud(screen, car, score)
-        ui.draw_nitro_bar(screen, car)
-        draw_gauge(screen, car.smooth_speed, font)
-        snow.draw(screen)
-        minimap.draw(screen, car, mission)
+        draw_playing_scene(screen)
+        draw_level2_timer(screen)
 
         if paused:
             draw_pause_panel(screen, pause_mode)
 
+    # ---------------- STATE: GAMEOVER WIPE ----------------
+    elif GAME_STATE == "GAMEOVER_WIPE":
+        draw_playing_scene(screen)
+        wipe_h = int((HEIGHT / 2) * min(gameover_wipe_progress, 1.0))
+        pygame.draw.rect(screen, (0, 0, 0), (0, 0, WIDTH, wipe_h))
+        pygame.draw.rect(screen, (0, 0, 0), (0, HEIGHT - wipe_h, WIDTH, wipe_h))
+        gameover_wipe_progress += 0.015
+        if gameover_wipe_progress >= 1.0:
+            GAME_STATE = "GAMEOVER_FADE"
+            gameover_fade_alpha = 0
+
+    # ---------------- STATE: GAMEOVER FADE ----------------
+    elif GAME_STATE == "GAMEOVER_FADE":
+        screen.fill((0, 0, 0))
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        ui.draw_game_over(overlay, score)
+        overlay.set_alpha(gameover_fade_alpha)
+        screen.blit(overlay, (0, 0))
+        gameover_fade_alpha = min(255, gameover_fade_alpha + 3)
+        if gameover_fade_alpha >= 255:
+            GAME_STATE = "GAMEOVER"
+
     # ---------------- STATE: GAMEOVER ----------------
     elif GAME_STATE == "GAMEOVER":
-        world.draw(screen, camera)
         ui.draw_game_over(screen, score)
 
+    # ---------------- STATE: WIN ----------------
+    elif GAME_STATE == "WIN":
+        draw_win_screen(screen)
+
+    # ---------------- STATE: RETRY FLASH OUT ----------------
+    elif GAME_STATE == "RETRY_FLASH_OUT":
+        ui.draw_game_over(screen, score)
+        flash = pygame.Surface((WIDTH, HEIGHT))
+        flash.fill((255, 255, 255))
+        flash.set_alpha(retry_white_alpha)
+        screen.blit(flash, (0, 0))
+        retry_white_alpha = min(255, retry_white_alpha + 4)
+        if retry_white_alpha >= 255:
+            reset_game_state()
+            if not title_video.done:
+                title_video.reset()
+            GAME_STATE = "RETRY_FLASH_IN"
+
+    # ---------------- STATE: RETRY FLASH IN ----------------
+    elif GAME_STATE == "RETRY_FLASH_IN":
+        screen.fill((0, 0, 0))
+        if not title_video.done:
+            title_video.update(screen)
+        ui.draw_menu(screen, draw_bg=title_video.done)
+        snow.update()
+        snow.draw(screen)
+
+        flash = pygame.Surface((WIDTH, HEIGHT))
+        flash.fill((255, 255, 255))
+        flash.set_alpha(retry_white_alpha)
+        screen.blit(flash, (0, 0))
+        retry_white_alpha = max(0, retry_white_alpha - 4)
+        if retry_white_alpha <= 0:
+            GAME_STATE = "MENU"
+
     pygame.display.update()
-
-
-

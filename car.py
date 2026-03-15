@@ -44,6 +44,7 @@ class Car(pygame.sprite.Sprite):
         keys = pygame.key.get_pressed()
         self.accel = pygame.math.Vector2(0, 0)
         speed = self.vel.length()
+        impact_speed = 4.0
         
         # --- 1. NITRO & BOOST LOGIC ---
         self.is_boosting = False
@@ -110,7 +111,8 @@ class Car(pygame.sprite.Sprite):
             elif tile_id == 9:
                 # Building Hit
                 self.vel *= -0.5 
-                self.health -= 0.5
+                if speed > impact_speed:
+                    self.health = max(0, self.health - 5)
             else:
                 # Grass Friction
                 self.vel *= 0.8
@@ -118,6 +120,8 @@ class Car(pygame.sprite.Sprite):
         else:
             # Map Boundary
             self.vel *= -1 
+            if speed > impact_speed:
+                self.health = max(0, self.health - 5)
 
         # --- 6. VISUAL RENDERING ---
         target_speed = self.vel.length()
