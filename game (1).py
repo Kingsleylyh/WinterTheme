@@ -5,10 +5,6 @@ import math
 
 
 def run_level1(screen, clock):
-    """
-    Runs Level 1 inside the existing pygame screen.
-    Returns True if player wins, False otherwise.
-    """
     pygame.init()
 
     WIDTH, HEIGHT = screen.get_size()
@@ -16,8 +12,6 @@ def run_level1(screen, clock):
 
     font = pygame.font.SysFont(None, 32)
     big_font = pygame.font.SysFont(None, 64)
-
-    # ---------------- IMAGE PATHS ----------------
     PLAYER_RUN1 = "assets/reindeer_frame1.png"
     PLAYER_RUN2 = "assets/reindeer_frame2.png"
     PLAYER_RUN3 = "assets/reindeer_frame3.png"
@@ -44,13 +38,11 @@ def run_level1(screen, clock):
             img = pygame.transform.flip(img, True, False)
         return img
 
-    # ---------------- IMAGE SIZES ----------------
     PLAYER_SIZE = (60, 60)
     SMALL_SIZE = (50, 50)
     BOMB_SIZE = (90, 90)
     STAMINA_SIZE = (40, 40)
 
-    # ---------------- LOAD IMAGES ----------------
     run_imgs = [
         load_img(PLAYER_RUN1, PLAYER_SIZE, True),
         load_img(PLAYER_RUN2, PLAYER_SIZE, True),
@@ -75,7 +67,6 @@ def run_level1(screen, clock):
     santa_frame = 0
     santa_timer = 0
 
-    # ---------------- PLAYER ----------------
     player = pygame.Rect(100, 220, PLAYER_SIZE[0], PLAYER_SIZE[1])
     player_speed = 5
     boost_speed = 10
@@ -83,7 +74,6 @@ def run_level1(screen, clock):
     run_timer = 0
     player_sad_timer = 0
 
-    # ---------------- CHRISTMAS EFFECTS ----------------
     snowflakes = []
     for _ in range(120):
         snowflakes.append([random.randint(0, WIDTH),

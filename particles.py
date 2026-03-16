@@ -6,8 +6,6 @@ class Snow:
         self.particles = []
 
     def update(self):
-        # CS Tip: Use a timer or frame count instead of random.random 
-        # if you want the snow density to be perfectly consistent.
         if random.random() < 0.5:
             self.particles.append([
                 random.randint(0, WIDTH),
@@ -45,10 +43,6 @@ class SmokeParticle:
         progression = self.life / self.max_life
         alpha = int(progression * 150)
         current_size = int(self.size * (2 - progression))
-        
-        # Performance Tip: If you have hundreds of particles, 
-        # draw directly to the screen using a circle if alpha isn't 100% necessary,
-        # OR cache the surface if the size doesn't change every frame.
         surf = pygame.Surface((current_size * 2, current_size * 2), pygame.SRCALPHA)
         pygame.draw.circle(surf, (*self.color, alpha), (current_size, current_size), current_size)
         
@@ -69,8 +63,6 @@ class TrailParticle:
 
     def draw(self, screen, camera):
         alpha = int((self.life / self.max_life) * 255)
-        # CS Tip: Pre-calculating a few rotated surfaces and picking one 
-        # is faster than transform.rotate() every frame.
         surf = pygame.Surface((4, 8), pygame.SRCALPHA) 
         surf.fill((*self.color, alpha))
         
@@ -89,7 +81,6 @@ class ParticleManager:
         self.particles.append(SmokeParticle(pos, color, life))
 
     def update(self):
-        # List comprehension is great here (O(n) complexity)
         self.particles = [p for p in self.particles if p.update()]
 
     def draw(self, screen, camera):

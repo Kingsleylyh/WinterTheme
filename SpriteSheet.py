@@ -2,7 +2,6 @@ import pygame
 
 class SpriteSheet:
     def __init__(self, filename, total_frames):
-        # Load the image
         self.sheet = pygame.image.load(filename).convert_alpha()
         
         # Calculate width: total width divided by number of frames

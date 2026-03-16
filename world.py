@@ -10,7 +10,6 @@ class World:
         self.tiles = {}
         
         # 2. Road IDs (Including all rotated variations)
-        # 33/34 are vertical straights. 100s and 200s are rotated turns.
         self.road_tile_ids = {1, 2, 3, 4, 5, 33, 34, 101, 102, 103, 201, 202, 203}
         
         # 3. Initialize 30x30 matrix with Grass (0)
@@ -35,8 +34,8 @@ class World:
             # 2. THE MAIN CROSS (Horizontal and Vertical Arteries)
             mid = 15
             for i in range(1, 29):
-                self.map_data[mid][i] = 3  # Main Horizontal Road
-                self.map_data[i][mid] = 33 # Main Vertical Road
+                self.map_data[mid][i] = 3 
+                self.map_data[i][mid] = 33
 
             # 3. INTERNAL ALLEYWAYS (Creating the "Grid" feel)
             for i in range(5, 25):
@@ -46,7 +45,6 @@ class World:
                 self.map_data[i][22] = 34 # Right Alley
 
             # 4. INTERSECTIONS (Placing Tile 5 at every road meeting point)
-            # We use a set of coordinates to place crossroads automatically
             intersections = [
                 (0, mid), (29, mid), (mid, 0), (mid, 29), (mid, mid), # Main Cross
                 (8, 8), (8, 15), (8, 22),                            # Upper Intersections
@@ -56,8 +54,7 @@ class World:
             for r, c in intersections:
                 self.map_data[r][c] = 5
 
-            # 5. COMPLEX BUILDING CLUSTERS (Creating the "Labyrinth")
-            # Instead of just corners, we place them in the "blocks" created by the grid
+            # 5. COMPLEX BUILDING CLUSTERS 
             for r_start, c_start in [(3,3), (3,18), (18,3), (18,18)]:
                 for dr in range(3):
                     for dc in range(3):
@@ -65,7 +62,7 @@ class World:
                         if self.map_data[r_start + dr][c_start + dc] == 0:
                             self.map_data[r_start + dr][c_start + dc] = 9
 
-            # 6. CORNERS (Your specific numbering)
+            # 6. CORNERS 
             self.map_data[0][0] = 2        
             self.map_data[0][29] = 102     
             self.map_data[29][29] = 202    
@@ -82,7 +79,7 @@ class World:
                     tile_id = int(filename.split('.')[0])
                     # .convert() + set_colorkey is the fix for black backgrounds
                     img = pygame.image.load(os.path.join(path, filename)).convert()
-                    img.set_colorkey((0, 0, 0)) # Makes black transparent
+                    img.set_colorkey((0, 0, 0)) 
                     
                     scaled = pygame.transform.scale(img, (self.tile_size, self.tile_size))
                     self.tiles[tile_id] = scaled

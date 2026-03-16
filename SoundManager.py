@@ -15,7 +15,6 @@ class SoundManager:
         self.sfx_volume = 0.5
         self.music_volume = 0.3
 
-        # Load sounds - Replace paths with your actual filenames
         self.load_sfx("shoot", "assets/sounds/shoot.mp3")
         self.load_sfx("hit", "assets/sounds/hit.mp3")
         self.load_sfx("zombie_die", "assets/sounds/death.mp3")
@@ -31,18 +30,15 @@ class SoundManager:
                 self.sounds[name].set_volume(self.sfx_volume)
                 self.sounds[name].play()
             else:
-                # CS Tip: Print a debug message if you try to play a missing sound
                 print(f"Logic Error: Sound '{name}' not loaded in SoundManager")
     def play_engine(self, speed_ratio):
         """Manages the continuous engine loop."""
         if "engine" in self.sounds:
             # 1. Start the sound if it's not already playing
             if self.engine_channel is None or not self.engine_channel.get_busy():
-                # -1 means loop forever
                 self.engine_channel = self.sounds["engine"].play(loops=-1)
             
             # 2. Dynamic Volume: The faster you go, the louder it gets
-            # We add a base volume (0.2) so it doesn't go silent when idling
             if self.engine_channel:
                 volume = 0.2 + (speed_ratio * 0.8)
                 self.engine_channel.set_volume(volume * self.sfx_volume)

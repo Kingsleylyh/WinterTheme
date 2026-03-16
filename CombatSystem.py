@@ -45,7 +45,7 @@ class CombatSystem:
             for enemy in hit_enemies:
                 if getattr(enemy, "is_dead", False):
                     continue
-                enemy.health -= 2  # 2% per hit (max_health=100)
+                enemy.health -= 2 
                 bullet.kill()
                 if enemy.health > 0:
                     self.sounds.play_sfx("hit")

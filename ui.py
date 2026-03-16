@@ -24,7 +24,6 @@ class UI:
         pygame.draw.rect(screen, (100, 0, 0), (bar_x, bar_y, bar_width, bar_height))
 
         # 3. Health Bar Foreground (Green)
-        # Use float math and clamp the ratio between 0 and 1
         ratio = max(0, min(1, car.health / car.max_health))
         pygame.draw.rect(screen, (0, 200, 0), (bar_x, bar_y, int(bar_width * ratio), bar_height))
         
@@ -136,19 +135,19 @@ class UI:
 
     def draw_nitro_bar(self, screen, car):
         # Padding and dimensions
-        x, y = 20, 50  # 20px from left, 50px down (assuming Health is at y=20)
+        x, y = 20, 50  
         width, height = 200, 12
     
-        # Background (Darker/Translucent)
+        # Background
         pygame.draw.rect(screen, (30, 30, 30), (x, y, width, height))
     
-        # Nitro Fill (Scaled 0-100)
+        # Nitro Fill
         fill_width = (car.nitro_charge / 100.0) * width
     
         # Pulse Effect: If boosting, make it flicker slightly
         bar_color = (0, 200, 255)
         if car.is_boosting and pygame.time.get_ticks() % 100 < 50:
-            bar_color = (200, 255, 255) # Lighter blue flicker
+            bar_color = (200, 255, 255) 
         
         pygame.draw.rect(screen, bar_color, (x, y, fill_width, height))
     
